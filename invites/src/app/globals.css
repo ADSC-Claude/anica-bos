@@ -1203,8 +1203,61 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   background-position: 50% 0, 50% 0;
   background-repeat: no-repeat, no-repeat;
 }
-/* the same picture by night, where the design drew one */
-.inv[data-paged][data-mode='night'] .inv-page[data-paper] { background-image: var(--page-paper-night, var(--page-paper)), linear-gradient(var(--page-paper-edge, transparent), var(--page-paper-edge, transparent)); }
+/*
+ * The same picture by night — her night artwork where the design drew one,
+ * and the day picture dimmed where it did not.
+ *
+ * "Why when i click the night, the christening word only applies to night
+ * the in the others it on the whole page?"
+ *
+ * A page the measuring pass paints is dimmed: `.inv-paper` takes a
+ * brightness filter, because most designs have no night artwork and a
+ * daylight sky under night-coloured ink is unreadable. A page painted by
+ * the shortcut above was taking none of it, so on the christening the
+ * sliced pages went dark and the whole ones stayed in daylight — which is
+ * why CHRISTENING all but disappeared against its own bright sky.
+ *
+ * It cannot be a filter on the page itself: that would dim her writing and
+ * her photographs along with the sky. So the picture moves to a backdrop of
+ * its own, under the content and inside the page's own stacking context —
+ * `.inv-page` is `position: relative; z-index: 1`, so a `z-index: -1` layer
+ * can sit above the page's background and below everything in it without
+ * escaping behind the page.
+ *
+ * `--page-paper-dim` is set by the renderer and only when the design drew
+ * no night picture; a design that drew one gets its own artwork clean, the
+ * same way the pass leaves `[data-night-art]` alone. The fallback here is
+ * the do-nothing value, so a page that somehow carries neither is merely
+ * undimmed rather than blank.
+ *
+ * The filter alone, and no multiply wash, because the filter alone is what
+ * the sliced pages are actually getting. `.inv-ground` does carry a wash in
+ * this stylesheet and it is meant to fall across the papers inside it, but
+ * measured off the render it is not reaching them: her countdown sky comes
+ * out at rgb(111, 113, 115), which is brightness(0.46) on #e7f3ff and
+ * nothing else. Adding the wash here put the cover at rgb(53, 57, 67) — a
+ * correct page beside an uncorrected one, which reads as the sky changing
+ * shade halfway down the invitation. So this matches what is really on the
+ * screen. The wash that is not landing is its own fault to find, and worth
+ * nothing to a guest until both sides agree.
+ *
+ * A `[data-paper]` page is never a `[data-grow]` one — the shortcut hands
+ * those back to the pass — and `:not([data-grow])` keeps this off that
+ * page's clearfix `::after` should that ever stop being true.
+ */
+.inv[data-paged][data-mode='night'] .inv-page[data-paper] { background-image: none; }
+.inv[data-paged][data-mode='night'] .inv-page[data-paper]:not([data-grow])::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--page-paper-night, var(--page-paper)), linear-gradient(var(--page-paper-edge, transparent), var(--page-paper-edge, transparent));
+  background-size: 100% auto, 100% 100%;
+  background-position: 50% 0, 50% 0;
+  background-repeat: no-repeat, no-repeat;
+  filter: var(--page-paper-dim, none);
+}
 .inv[data-paged][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--inv-paper, #f2e8dc); }
 .inv[data-paged][data-mode='night'][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--night-paper, #1a1b26); }
 @media (prefers-reduced-motion: reduce) { .inv-pin { transition: none; } }

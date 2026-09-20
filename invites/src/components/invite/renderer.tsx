@@ -2254,10 +2254,33 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
        * handed back to it.
        */
       if (g.slices || o.run || o.pin || o.bleed || o.seam || o.grow) return {};
+      /*
+       * And night has to be handed over with it.
+       *
+       * "Why when i click the night, the christening word only applies to
+       * night the in the others it on the whole page?"
+       *
+       * The measuring pass darkens what it paints — `.inv-paper` takes a
+       * brightness filter — because most designs have no night artwork and
+       * a daylight sky under night-coloured writing is unreadable. This shortcut was painting the
+       * same picture straight onto the page, on top of all that, and taking
+       * neither. So on her christening the sliced pages went dark and the
+       * whole ones stayed bright, with the pale night ink still on them:
+       * CHRISTENING nearly invisible against its own daylight sky.
+       *
+       * The two treatments travel as variables rather than as a second rule,
+       * for the same reason the picture does: the stylesheet cannot ask
+       * whether a design drew a night version, and this can. A design that
+       * did gets its own artwork, undimmed and unwashed, exactly as the
+       * measuring pass leaves `[data-night-art]` alone.
+       */
+      const night = g.night
+        ? { ['--page-paper-night' as string]: `url("${g.night}")` }
+        : { ['--page-paper-dim' as string]: 'brightness(0.46) saturate(0.7) contrast(1.05)' };
       return {
         ['--page-paper' as string]: `url("${g.url}")`,
         ['--page-paper-edge' as string]: g.bottom || g.top || 'transparent',
-        ...(g.night ? { ['--page-paper-night' as string]: `url("${g.night}")` } : {}),
+        ...night,
       } as CSSProperties;
     };
     const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; live?: boolean; top?: number; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {

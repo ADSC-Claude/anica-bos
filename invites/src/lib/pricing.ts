@@ -230,6 +230,18 @@ export function quote(input: {
   /** What is being celebrated. Some add-ons do not suit every occasion. */
   occasion?: Occasion;
   coupon?: CouponLike | null;
+  /**
+   * What the discount comes off.
+   *
+   * 'order' is every coupon's ordinary behaviour and the default: a code a
+   * customer brought takes its percentage off what they are paying.
+   *
+   * 'package' is the opening offer. "Yes 20% is in packages only" — the
+   * twenty per cent comes off the package price and leaves the add-ons and
+   * the service alone, which is also exactly the sum the package card
+   * shows, so the card and the bill agree to the centavo.
+   */
+  couponOn?: 'order' | 'package';
   now?: Date;
 }): Quote {
   const items: QuoteItem[] = [
@@ -259,7 +271,10 @@ export function quote(input: {
     if (problem) {
       couponError = problem;
     } else if (input.coupon) {
-      discountCents = discountAmount(gross, input.coupon.type, input.coupon.value);
+      // the minimum spend is still judged on the whole order above: what a
+      // discount comes *off* and what qualifies for it are two questions
+      const base = input.couponOn === 'package' ? input.pkg.priceCents : gross;
+      discountCents = Math.min(gross, discountAmount(base, input.coupon.type, input.coupon.value));
       if (discountCents > 0) {
         items.push({ kind: 'DISCOUNT', code: input.coupon.code, name: `Coupon ${input.coupon.code}`, amountCents: -discountCents });
       }

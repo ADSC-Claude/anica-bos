@@ -56,7 +56,7 @@ export function CheckoutWizard(p: WizardProps) {
   // the premium opening is sold per design: a design with no clip yet cannot carry it
   const premiumOk = !template || template.premiumOpenings.length > 0;
   const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
-  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, occasion, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, occasion, coupon]);
+  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, occasion, coupon: coupon ?? undefined, couponOn: coupon && p.launch && coupon.code === p.launch.code ? 'package' : 'order' }) : null), [pkg, mode, chosenAddOns, occasion, coupon, p.launch]);
 
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
   // Rounds are the package's, and buying speed spends some of them: there is no

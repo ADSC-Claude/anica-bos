@@ -100,7 +100,8 @@ export async function buildQuote(input: {
     const launch = await prisma.coupon.findUnique({ where: { code: LAUNCH_CODE } });
     if (launch && !couponProblem(launch, q.totalCents)) {
       coupon = launch;
-      q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: launch });
+      // packages only, which is also what the package card quotes
+      q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: launch, couponOn: 'package' });
     }
   }
 

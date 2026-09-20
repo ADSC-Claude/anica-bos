@@ -644,8 +644,37 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         x: 51.39, y: 79.40, w: 23.70, aspect: 1.1367, anchor: 'centre', frame: 'none', z: 2,
         inset: { x: 0.0742, y: 0.0447, w: 0.832, h: 0.7044 },
         tapAs: 'cover-print', motion: { enter: 'slide' } },
+      /*
+       * Her camera, cut out of her own cover and laid back exactly where it
+       * already is — but over the print instead of under it.
+       *
+       * "could you still arrange the polaroid to be pulling out at the back
+       * of the instax not at the front."
+       *
+       * The camera was painted into the ground, and a ground is beneath
+       * every element by definition, so the print could only ever come out
+       * in front of it: its last 44 pixels sat *on* the top plate, which is
+       * precisely where the slot is, and a print that covers the slot it
+       * came from reads as laid on the camera rather than fed out of it.
+       * There was no element to raise it above, because the camera was not
+       * an element at all.
+       *
+       * So it is one now. `scripts/canva-cut.py`'s method, done to the
+       * cover: the rectangle the camera occupies, keyed on her sky with a
+       * soft edge so the antialiasing survives, trimmed to its own alpha —
+       * 368 to 727 across and 1626 to the foot of the page, which is the
+       * box below. Laid back at those very coordinates it is invisible
+       * against the ground it was taken from; the only thing it changes is
+       * what may pass in front of it, and the answer is nothing. The print
+       * (no z) and the photograph in it (z 2) both travel underneath, so
+       * the foot of the print disappears into the top plate as it rises.
+       *
+       * `hidden: 'never'` and no motion: it is furniture, not a gesture.
+       */
+      piece('cover-camera', '/christening/parts/instax-camera.webp',
+        { cx: 50.69, cy: 92.34, w: 33.24, aspect: 0.8189, z: 3 }),
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
-        anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
+        anchor: 'centre', fill: 'transparent', taps: 'cover-print', z: 4 },
     ],
   },
   {

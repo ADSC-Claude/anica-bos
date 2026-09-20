@@ -187,6 +187,20 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   const data = {
     invitationId: invitation.id,
     guestId: guest?.id ?? picked,
+    /*
+     * Where this reply came from, written down rather than inferred.
+     *
+     * It used to be inferable: a `guestId` could only have come from a token,
+     * so the guest list read one as "personal link" and the seat queue read
+     * one as already vetted. The picker broke both of those in the same
+     * stroke — a picked name now sets `guestId` too, and it is nothing like
+     * the same evidence. Anyone holding the link can tap anyone's name, and
+     * no allotment was applied when they did.
+     *
+     * So the distinction is stored. See wasVetted() in seats.ts for the half
+     * of it that decides whether a reply skips the couple's seat review.
+     */
+    source: (guest ? 'LINK' : picked ? 'PICKED' : 'TYPED') as 'LINK' | 'PICKED' | 'TYPED',
     name: input.name,
     response: input.response,
     groupName,

@@ -10,7 +10,7 @@ import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
 import { RsvpToggle } from './toggle';
 import { companionsOf, attendeeLine } from '@/lib/attendees';
-import { awaitingDecision, replySeats } from '@/lib/seats';
+import { awaitingDecision, replySeats, sourceLabel, wasVetted } from '@/lib/seats';
 import { invitationUrl } from '@/lib/app-url';
 import { displayTitle, fieldsFor, bool } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
@@ -33,8 +33,8 @@ const BAR: Record<BreakdownKey, string> = { attending: 'var(--ok)', declined: 'v
  * typed beside it. A corporate reply's department sits here rather than in the
  * contact column, because it says who somebody is from, not how to reach them.
  */
-function NameCell({ name, alias, group, department, personal }: { name: string; alias: string; group: string; department: string; personal: boolean }) {
-  const under = [department, group, alias && `replied as ${alias}`, personal ? 'personal link' : ''].filter(Boolean).join(' · ');
+function NameCell({ name, alias, group, department, from }: { name: string; alias: string; group: string; department: string; from: string }) {
+  const under = [department, group, alias && `replied as ${alias}`, from].filter(Boolean).join(' · ');
   return (
     <td>
       {name}
@@ -78,7 +78,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, seatsApproved: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, guest: { select: { name: true, salutation: true, token: true } }, emails: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, error: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
+  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, seatsApproved: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, source: true, guest: { select: { name: true, salutation: true, token: true } }, emails: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, error: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
   const confirms = entitled(inv, 'rsvp.emailConfirmation');
   const meals = hasFeature(inv.tier, 'rsvp.meal');
@@ -94,8 +94,11 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   // `vetted` needs both halves: the token has to have resolved to a guest AND
   // the invitation has to carry personal links, because the cap in submitRsvp
   // is behind that same entitlement.
+  // wasVetted, not `Boolean(guestId)`: the guest-list picker sets a guestId
+  // on a reply nobody vetted, and reading one as the other let a picked name
+  // claim ten seats and skip this queue. See seats.ts.
   const personalLinks = entitled(inv, 'rsvp.personalLinks');
-  const vettedOf = (r: { guestId: string | null }) => Boolean(r.guestId) && personalLinks;
+  const vettedOf = (r: { guestId: string | null; source?: 'LINK' | 'PICKED' | 'TYPED' | null }) => wasVetted(r, personalLinks);
   // The queue keeps a reply that was cut, rather than dropping it the moment
   // the number is saved. Two reasons: the couple still has to tell that guest,
   // and the drawer where they write it would otherwise unmount mid-sentence
@@ -274,7 +277,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
-                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} department={r.department} personal={Boolean(r.guestId)} />
+                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} department={r.department} from={sourceLabel(r)} />
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>
                     {r.response === 'ACCEPT' ? (

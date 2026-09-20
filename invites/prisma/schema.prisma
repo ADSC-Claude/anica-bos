@@ -667,6 +667,24 @@ enum RsvpResponse {
   DECLINE
 }
 
+/// How a reply reached us, which is the same question as how much it can be
+/// trusted about who sent it.
+///
+/// LINK   the guest opened their own personal link — the token is evidence,
+///        and their seat allotment was applied when the reply was written
+/// PICKED no token; they tapped their name in the guest-list picker, which
+///        anyone holding the link could have done for anyone
+/// TYPED  no token, no list; they typed a name
+///
+/// Null on every reply written before this column existed. Those can only
+/// have got a `guestId` from a token, since the picker did not exist, so a
+/// null reads as LINK where there is a guestId and TYPED where there is not.
+enum RsvpSource {
+  LINK
+  PICKED
+  TYPED
+}
+
 /// One response per guest link (updated in place) or one per open-form
 /// submission (no guest). Attendee names are stored so the couple can print a
 /// list, and so a "party of 4" is four names and not a number.
@@ -698,6 +716,10 @@ model Rsvp {
   /// list and an address nowhere a blast could read it.
   department    String       @default("")
   ip            String       @default("")
+  /// Where this reply came from: a personal link, a name picked off the
+  /// guest list, or a name typed in. Nullable because every reply written
+  /// before the picker existed predates the question — see RsvpSource.
+  source        RsvpSource?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

@@ -683,6 +683,11 @@ enum RsvpSource {
   LINK
   PICKED
   TYPED
+  /// The couple matched a typed reply to a name on their own list by hand.
+  /// Like PICKED it is not evidence of identity and unlocks no allotment —
+  /// it is the couple saying "these two are the same person", which is a
+  /// better record than the reply floating unattached, and no more.
+  MATCHED
 }
 
 /// One response per guest link (updated in place) or one per open-form

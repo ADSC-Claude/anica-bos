@@ -12,7 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesName, answeredFor, MIN_QUERY, MAX_MATCHES, type ReplyRow } from '../src/lib/guest-match';
+import { matchesName, answeredFor, rankGuests, MIN_QUERY, MAX_MATCHES, type ReplyRow } from '../src/lib/guest-match';
 import { attendeesOf, type Attendee } from '../src/lib/attendees';
 import { fieldsFor } from '../src/lib/sections';
 
@@ -148,4 +148,49 @@ test('the first party to name someone is the one credited', () => {
     reply({ name: 'Ben', attendees: [{ name: 'Ben' }, { name: 'Lola Rosa', guestId: 'g_rosa' }] }),
   ]);
   assert.equal(m.get('g_rosa'), 'Ana', 'one grandmother, one seat, the first party that claimed her');
+});
+
+/**
+ * Joining a reply to the name it belongs to.
+ *
+ * "there is a rsvp already for pedro, that what im referring to this tab, it
+ * doesnt click to the list i have now"
+ *
+ * Her first acceptance arrived at 2:47 and her guest list at 4:04, so the
+ * reply had nothing to attach to and nothing went back for it afterwards.
+ * Pedro sat on the guest list as "no reply yet" while his acceptance sat on
+ * the other tab attached to nobody.
+ *
+ * The ranking only *offers*; a person presses. Marking the wrong lola as
+ * coming is worse than leaving a reply unmatched, so this is tested for what
+ * it puts at the top rather than for what it would decide.
+ */
+const LIST = [
+  { id: 'g1', name: 'Pedro German' },
+  { id: 'g2', name: 'Pedro German Jr.' },
+  { id: 'g3', name: 'Reina Catherine German' },
+  { id: 'g4', name: 'Ma Luz Corporal' },
+  { id: 'g5', name: 'Abigail Ureta' },
+];
+
+test('the closest name on the list comes first, and the near-miss after it', () => {
+  const best = rankGuests('Pedro german jr', LIST);
+  assert.equal(best[0]!.name, 'Pedro German Jr.', 'three words in common beats two');
+  assert.equal(best[1]!.name, 'Pedro German');
+  assert.ok(!best.some((g) => g.name === 'Abigail Ureta'), 'a name with nothing in common is not offered');
+});
+
+test('a family name alone still finds the family', () => {
+  const best = rankGuests('Reina catherine buena', LIST);
+  assert.equal(best[0]!.name, 'Reina Catherine German', 'two given names carry it');
+});
+
+test('a nickname nobody shares offers nothing rather than a guess', () => {
+  assert.deepEqual(rankGuests('Jhen', LIST), [], 'better an empty shortlist than the wrong lola');
+  assert.deepEqual(rankGuests('', LIST), [], 'and a blank name is not a search');
+});
+
+test('the shortlist is a shortlist', () => {
+  const many = Array.from({ length: 40 }, (_, i) => ({ id: `g${i}`, name: `Maria Santos ${i}` }));
+  assert.ok(rankGuests('Maria Santos', many).length <= 6, 'a page of names is not a shortlist');
 });

@@ -79,7 +79,7 @@ export function replySeats(reply: SeatReply | null | undefined): number {
  * Null on every reply written before the column existed. See RsvpSource in
  * the schema.
  */
-export type ReplySource = 'LINK' | 'PICKED' | 'TYPED' | null | undefined;
+export type ReplySource = 'LINK' | 'PICKED' | 'TYPED' | 'MATCHED' | null | undefined;
 
 /**
  * Whether the couple already agreed to this reply's numbers.
@@ -121,6 +121,9 @@ export function wasVetted(reply: { guestId: string | null; source?: ReplySource 
  */
 export function sourceLabel(reply: { guestId: string | null; source?: ReplySource }): string {
   if (reply.source === 'PICKED') return 'picked from your list';
+  // The couple's own reading of a typed reply, said plainly so it is never
+  // mistaken for the guest having identified themselves.
+  if (reply.source === 'MATCHED') return 'you matched this to your list';
   if (reply.source === 'TYPED') return '';
   // LINK, or an old reply whose guestId can only have come from a token.
   return reply.guestId ? 'personal link' : '';

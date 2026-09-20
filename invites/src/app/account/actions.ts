@@ -12,7 +12,7 @@ import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, save
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
-import { decideSeats, messageGuest, deleteReply } from '@/lib/rsvp';
+import { decideSeats, messageGuest, deleteReply, matchReply } from '@/lib/rsvp';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
@@ -191,6 +191,20 @@ export async function decideSeatsAction(invitationId: string, rsvpId: string, se
     const r = await decideSeats(inv, rsvpId, seats);
     refresh(invitationId);
     return { trimmed: r.trimmed, claimed: r.claimed, approved: r.approved };
+  });
+}
+
+/**
+ * The couple joining a typed reply to a name on their guest list, or undoing
+ * that. See matchReply() for why nothing matches on its own.
+ */
+export async function matchReplyAction(invitationId: string, rsvpId: string, guestId: string | null) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const r = await matchReply(inv, rsvpId, guestId);
+    refresh(invitationId);
+    return { name: r.name, guestId: r.guestId };
   });
 }
 

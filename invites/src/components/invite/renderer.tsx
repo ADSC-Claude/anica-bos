@@ -2234,12 +2234,29 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * Night is a variable rather than a second rule, so the stylesheet can
      * swap the file without this knowing which mode the guest is in.
      */
-    const paper = (o: { bg?: string; drawn?: boolean; seam?: number; run?: string; pin?: string; bleed?: boolean }): CSSProperties => {
+    const paper = (o: { bg?: string; drawn?: boolean; seam?: number; run?: string; pin?: string; bleed?: boolean; grow?: boolean }): CSSProperties => {
       const g = o.bg ? (docGrounds ?? art.grounds)?.[o.bg] : undefined;
       if (!g?.url || !o.drawn) return {};
-      if (g.slices || o.run || o.pin || o.bleed || o.seam) return {};
+      /*
+       * `grow` is the one that was missing, and it cost her the godparents.
+       *
+       * This shortcut is only sound while the page is exactly one picture
+       * tall — then the rectangle CSS paints is the rectangle the measuring
+       * pass would have measured. A page that grows with what is typed into
+       * it is not: her ninongs and ninangs ran the page past its 1.1111 and
+       * the artwork was stretched down with it, because a background given
+       * both its width and its height is obliged to fill them.
+       *
+       * Every other growing page in her design carries `slices` and was
+       * already excluded; godparents does not, so it fell through the gap
+       * alone. The pass handles a grown page properly — it keeps the
+       * picture's own shape and trims the sides — so a growing page is
+       * handed back to it.
+       */
+      if (g.slices || o.run || o.pin || o.bleed || o.seam || o.grow) return {};
       return {
         ['--page-paper' as string]: `url("${g.url}")`,
+        ['--page-paper-edge' as string]: g.bottom || g.top || 'transparent',
         ...(g.night ? { ['--page-paper-night' as string]: `url("${g.night}")` } : {}),
       } as CSSProperties;
     };

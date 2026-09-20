@@ -1324,6 +1324,21 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
     if (!inv) return;
+    /*
+     * Every page, the ones the stylesheet paints included.
+     *
+     * A drawn page whose picture is exactly its own box carries
+     * `data-paper`, and its background comes with the markup — up before a
+     * line of this has run, which is the whole point: this cannot run until
+     * the script has arrived, and until then such a page stood bare.
+     *
+     * They stay in the list all the same. This pass does more than lay
+     * paper: it raises the pages that grow, and it is the list the
+     * ResizeObserver watches. Dropping them here to save laying a second
+     * copy would have cost a grown page its height — and the second copy
+     * costs nothing to speak of, being the same file already fetched and
+     * hidden behind a page that is now opaque where it matters.
+     */
     const allPages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
     /*
      * One run per surface, and a booklet is a surface.

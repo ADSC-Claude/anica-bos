@@ -5633,6 +5633,84 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 }
 
 /*
+ * SHOW ALL MESSAGES, and the page it opens.
+ *
+ * "Can the messages they leave can have a button where they can read all the
+ * messages like 'show all messages' in a separate tab not in the main page."
+ *
+ * The link sits where the "and 2 more in the book" line used to, so the
+ * guestbook page keeps its shape — but it is a real target now, not 20px of
+ * grey text, because every guest is inside Messenger's browser on a phone
+ * and the way back on the calendar page had to be fixed for exactly that
+ * reason once already.
+ *
+ * The book itself borrows the invitation's colours and faces through the
+ * same custom properties the pages use, so it reads as part of the
+ * celebration rather than as a screen from the app. The one thing it does
+ * not borrow is her artwork: a page whose whole job is reading needs the
+ * words on plain paper, and a page of eighty of them cannot sit on a
+ * background drawn for one screen.
+ */
+.inv-book-open {
+  display: inline-flex;
+  align-items: center;
+  /* 44px, the smallest a thumb lands on reliably — the same lesson the
+     calendar page's way back had to be taught the hard way. */
+  min-height: 44px;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid currentColor;
+  color: var(--inv-ink);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.inv-book {
+  min-height: 100svh;
+  padding: 2.5rem 1rem calc(2rem + env(safe-area-inset-bottom));
+  background: var(--inv-paper, #e8f1fb);
+  color: var(--inv-ink, #2b4a6f);
+  font-family: var(--inv-body, ui-serif, Georgia, serif);
+  text-align: center;
+}
+.inv-book h1 {
+  margin: 0 0 0.25rem;
+  font-family: var(--inv-display, var(--inv-body, ui-serif, Georgia, serif));
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.inv-book-count { margin: 0 0 1.5rem; font-size: 0.85rem; opacity: 0.75; }
+.inv-book-none { margin: 2rem 0; font-size: 0.95rem; opacity: 0.75; }
+.inv-book-list {
+  width: min(32rem, 100%);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+.inv-book-note {
+  margin-bottom: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.55);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+/* A wish is written, not typed: its line breaks are the writer's. */
+.inv-book-words { margin: 0; font-size: 0.95rem; line-height: 1.55; white-space: pre-line; }
+.inv-book-who { margin: 0.4rem 0 0; font-size: 0.8rem; opacity: 0.7; }
+.inv-book-back {
+  display: block;
+  width: min(22rem, 100%);
+  margin: 1.75rem auto 0;
+  padding: 0.9rem 1.25rem;
+  color: inherit;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+/*
  * The calendar chooser: where ADD TO CALENDAR lands.
  *
  * Deliberately plain and deliberately large. A guest arrives here from the

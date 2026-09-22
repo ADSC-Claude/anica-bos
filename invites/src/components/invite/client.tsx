@@ -9,7 +9,6 @@ import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger }
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
 import { MIN_QUERY } from '@/lib/guest-match';
-import { restOfBook } from '@/lib/showlist';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -1220,88 +1219,6 @@ export function GuestbookForm({ slug, labels }: { slug: string; labels: { name: 
       {error && <p role="alert" className="rounded-lg bg-[#fbe9e7] p-2 text-sm text-[#8f1d17]">{error}</p>}
       <button type="submit" className="inv-btn w-full" disabled={busy}>{labels.submit}</button>
     </form>
-  );
-}
-
-/**
- * The rest of the book.
- *
- * The wall holds three so the page keeps moving, and the line under it says
- * how many more there are. That line was a statement and nothing more: the
- * others were only reachable from the couple's dashboard, so a guest who
- * wanted to read what everybody wrote — which is most of why a guestbook is
- * on a page at all — could not. Now the line is the door.
- *
- * It fetches rather than shipping the lot in the page. Most guests never tap
- * it, and a wall eighty deep would otherwise be eighty messages in the HTML
- * of every single view, on phones, on mobile data, at a reception.
- *
- * Fetched wishes are filtered against the ids already on the wall rather than
- * skipped by count. A wish arriving between the render and the tap would
- * shift every position by one, and off-by-one here means a guest reading the
- * same message twice while somebody else's is missing.
- */
-export function TheBook({
-  slug,
-  total,
-  shownIds,
-  labels,
-}: {
-  slug: string;
-  total: number;
-  shownIds: string[];
-  labels: { open: string; close: string; opening: string; failed: string };
-}) {
-  const [state, setState] = useState<'closed' | 'loading' | 'open' | 'failed'>('closed');
-  const [rest, setRest] = useState<{ id: string; name: string; message: string }[]>([]);
-
-  async function open() {
-    setState('loading');
-    try {
-      const res = await fetch(`/api/public/guestbook?slug=${encodeURIComponent(slug)}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'No book.');
-      setRest(restOfBook(json.wishes as typeof rest, shownIds));
-      setState('open');
-    } catch {
-      setState('failed');
-    }
-  }
-
-  // The line keeps its height whatever it says, so opening and closing the
-  // book does not shunt the form underneath it up and down the screen.
-  const line = 'inv-muted mb-5 text-center text-xs';
-
-  if (state === 'open') {
-    return (
-      <>
-        <ul className="mb-2 space-y-2">
-          {rest.map((w) => (
-            <li key={w.id} className="inv-card">
-              <p className="whitespace-pre-line text-sm">{w.message}</p>
-              <p className="inv-muted mt-1 text-xs">— {w.name}</p>
-            </li>
-          ))}
-        </ul>
-        <p className={line}>
-          <button type="button" className="underline underline-offset-2" onClick={() => setState('closed')}>
-            {labels.close}
-          </button>
-        </p>
-      </>
-    );
-  }
-
-  return (
-    <p className={line} aria-live="polite">
-      {state === 'loading' ? (
-        labels.opening
-      ) : (
-        <button type="button" className="underline underline-offset-2" onClick={open}>
-          {state === 'failed' ? labels.failed : labels.open.replace('{n}', String(total))}
-        </button>
-      )}
-    </p>
   );
 }
 

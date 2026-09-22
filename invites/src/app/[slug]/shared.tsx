@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { loadPublic, recordView, contentOf, type PublicInvitation } from '@/lib/invitations';
+import { loadPublic, recordView, contentOf, resolveTheme, allWishes, type PublicInvitation } from '@/lib/invitations';
 import { guestByToken } from '@/lib/guests';
 import { hasGuestAccess } from '@/lib/guest-access';
 import { isStaff } from '@/lib/rbac';
@@ -9,8 +10,10 @@ import { readDraftLink, keyOpens } from '@/lib/draft-link';
 import { getSettings } from '@/lib/settings';
 import { fontBook } from '@/lib/font-book';
 import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
-import { str, eventInstant, anchorOf } from '@/lib/sections';
+import { str, bool, eventInstant, anchorOf } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
+import { cssVars } from '@/lib/theme';
+import { t, type Lang } from '@/lib/copy';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
 import { ScrollTo } from '@/components/invite/scroll-to';
 import { documentOf, pageOfSection } from '@/lib/design';
@@ -97,6 +100,72 @@ export function ExpiredNotice({ invitation }: { invitation: PublicInvitation }) 
       <p className="eyebrow mb-3">This invitation has closed</p>
       <h1 className="display text-2xl">{invitation.title}</h1>
       <p className="mt-4 text-sm text-[color:var(--color-ink-700)]">The celebration has passed and the link is no longer active. Thank you for being part of it.</p>
+    </main>
+  );
+}
+
+/**
+ * Every message, on a page of its own.
+ *
+ * "Can the messages they leave can have a button where they can read all the
+ * messages like 'show all messages' in a separate tab not in the main page."
+ *
+ * The wall on the invitation holds three so the celebration keeps moving.
+ * The rest were reachable only from the couple's Guestbook tab, which is not
+ * a guest's to open — so most of why a guestbook is on a page at all, that
+ * guests read what everybody wrote, did not work.
+ *
+ * A page rather than an expanding section, because that is what she asked
+ * for and it is also the better answer: the invitation never grows to eighty
+ * messages deep, the link can be sent on its own or opened in a new tab, and
+ * a guest reading the book is not scrolling the celebration to do it.
+ *
+ * It resolves the invitation exactly as every other guest page does, so the
+ * gates are the page's and not a second set to keep in step: a draft is its
+ * owner's only, an expired link says so, a password shows the password form.
+ * Only approved wishes are loaded, and a guestbook switched off has no page
+ * at all — whatever is still stored behind it.
+ *
+ * Her palette and her fonts come from the same resolveTheme the invitation
+ * uses, so the book is in the celebration's colours rather than the app's.
+ */
+export async function MessagesPage({ slug, token }: { slug: string; token?: string }) {
+  const { invitation, previewer, keyed, locked } = await resolveInvitation(slug, token);
+  if (locked) return <PasswordGate slug={slug} token={token} />;
+  const live = invitation.status === 'PUBLISHED' && !invitation.expired;
+  if (!live && !previewer && !keyed) notFound();
+  if (invitation.expired && !previewer && !keyed) return <ExpiredNotice invitation={invitation} />;
+
+  const content = contentOf(invitation.content);
+  // No guestbook, no book. The page is not a way round the switch.
+  if (!bool(content.guestbook, 'enabled')) notFound();
+
+  const wishes = await allWishes(invitation.id);
+  const lang: Lang = invitation.language === 'tl' ? 'tl' : 'en';
+  const theme = resolveTheme(invitation.template, content, invitation.tier, await fontBook());
+  const back = invitationPath(slug, token);
+
+  return (
+    <main className="inv-book" style={cssVars(theme.palette, theme.fonts) as CSSProperties} lang={lang}>
+      <h1>{t(lang, 'guestbook.title')}</h1>
+      <p className="inv-book-count">
+        {wishes.length === 1 ? t(lang, 'guestbook.oneMessage') : t(lang, 'guestbook.someMessages', { n: wishes.length })}
+      </p>
+
+      {wishes.length > 0 ? (
+        <ul className="inv-book-list">
+          {wishes.map((w) => (
+            <li key={w.id} className="inv-book-note">
+              <p className="inv-book-words">{w.message}</p>
+              <p className="inv-book-who">— {w.name}</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="inv-book-none">{t(lang, 'guestbook.first')}</p>
+      )}
+
+      <a className="inv-book-back" href={back}>← {t(lang, 'guestbook.backToInvitation')}</a>
     </main>
   );
 }

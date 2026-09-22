@@ -1175,7 +1175,7 @@ export function RsvpForm(p: RsvpFormProps) {
 // Guestbook
 // ---------------------------------------------------------------------------
 
-export function GuestbookForm({ slug, labels }: { slug: string; labels: { name: string; prompt: string; submit: string; pending: string; thanks: string } }) {
+export function GuestbookForm({ slug, token, labels }: { slug: string; token?: string; labels: { name: string; prompt: string; submit: string; pending: string; thanks: string } }) {
   const [busy, setBusy] = useState(false);
   const [state, setState] = useState<'idle' | 'pending' | 'posted'>('idle');
   const [error, setError] = useState('');
@@ -1189,7 +1189,7 @@ export function GuestbookForm({ slug, labels }: { slug: string; labels: { name: 
       const res = await fetch('/api/public/guestbook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, name: fd.get('name'), message: fd.get('message'), website: fd.get('website') ?? '' }),
+        body: JSON.stringify({ slug, token, name: fd.get('name'), message: fd.get('message'), website: fd.get('website') ?? '' }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Something went wrong.');

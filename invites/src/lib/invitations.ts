@@ -647,6 +647,35 @@ async function keptCounts(invitationId: string, content: unknown, shown: { messa
   return { messages, photos };
 }
 
+/**
+ * Every wish in the book, for the page that shows them all.
+ *
+ * The wall on the invitation holds three (`SHOW_MESSAGES`) so the page keeps
+ * moving. This is the whole book, for /{slug}/messages — a page of its own,
+ * so the invitation itself never grows to eighty messages deep and a guest
+ * who only wants to read them is not scrolling the celebration to do it.
+ *
+ * Approved only, exactly as the wall does it: a wish waiting for approval
+ * must not become readable by opening a different page. Everything else the
+ * page may not show — a draft, a password, a guestbook switched off — is
+ * decided by the page itself, which resolves the invitation the same way
+ * every other guest page does, so a previewer sees their own draft and a
+ * stranger sees the password form.
+ *
+ * A ceiling of 500. Past that the oldest stay in the couple's Guestbook tab
+ * and the export, which is where a book that long belongs anyway.
+ */
+export const BOOK_CEILING = 500;
+
+export async function allWishes(invitationId: string) {
+  return prisma.guestbookEntry.findMany({
+    where: { invitationId, approved: true },
+    orderBy: { createdAt: 'desc' },
+    take: BOOK_CEILING,
+    select: { id: true, name: true, message: true, createdAt: true },
+  });
+}
+
 export async function checkGuestPassword(invitationId: string, password: string): Promise<boolean> {
   const row = await prisma.invitation.findUnique({ where: { id: invitationId }, select: { passwordHash: true } });
   if (!row?.passwordHash) return true;

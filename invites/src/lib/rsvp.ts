@@ -27,17 +27,110 @@ import { formatDate } from './datetime';
  */
 
 const WINDOW_MS = 60 * 60 * 1000;
-const RSVP_PER_IP_PER_HOUR = 20;
-const GUESTBOOK_PER_IP_PER_HOUR = 10;
 
-async function rateLimit(kind: 'rsvp' | 'guestbook', ip: string) {
+/**
+ * How many writes an hour will take, and from whom.
+ *
+ * The old rule was one number counted per IP address: ten wishes an hour, or
+ * twenty replies, from one address, across every invitation on the site. It
+ * was written imagining a bot at a keyboard, and at a reception it describes
+ * the guests instead. Eighty people at one venue are eighty people on one
+ * wifi, which is one address — so the eleventh person to write a wish at the
+ * party is told they have sent too many, having sent one. The people it fails
+ * are exactly the people the guestbook is for.
+ *
+ * So the same three windows the photo album already uses, for the same
+ * reasons (see photoLimit in src/lib/photos.ts, which this deliberately
+ * mirrors rather than inventing a second shape):
+ *
+ *  - a guest who came through their own personal link is counted as
+ *    themselves, and the address they share with the room is not counted
+ *    against them at all;
+ *  - everyone else is counted by address, at a room's worth rather than a
+ *    person's;
+ *  - and above both, a ceiling on the invitation itself, which is the flood
+ *    actually worth stopping — one guestbook filling in minutes.
+ *
+ * Counted per invitation, not site-wide: a busy wedding must not lock a guest
+ * of a different couple out of replying from the same office.
+ *
+ * None of this is the real defence against a determined bot. That is the
+ * approval switch, and for a guestbook running without one — which is how
+ * hers runs, deliberately — it is the couple's Delete. These numbers exist to
+ * stop a flood, not an attacker.
+ */
+
+/** One guest, through their own personal link, in an hour. */
+const RSVP_PER_GUEST_PER_HOUR = 10;
+const GUESTBOOK_PER_GUEST_PER_HOUR = 10;
+
+/** One address, on one invitation, in an hour — a venue's wifi, not a person. */
+const RSVP_PER_IP_PER_HOUR = 60;
+const GUESTBOOK_PER_IP_PER_HOUR = 120;
+
+/** One invitation in an hour, however many phones are writing to it. */
+const RSVP_PER_INVITATION_PER_HOUR = 150;
+const GUESTBOOK_PER_INVITATION_PER_HOUR = 200;
+
+/** What each window has already seen when a write arrives. */
+export type WriteCounts = {
+  /** This personal link's own writes in the window, or null when none was used. */
+  guest: number | null;
+  /** Writes from this address to this invitation in the window. */
+  ip: number;
+  /** Writes to this invitation in the window, from every address. */
+  invitationHour: number;
+};
+
+/**
+ * Whether this write is one too many, and what to tell the person.
+ *
+ * Pure, so the thresholds can be tested without filling a database, and so
+ * the wording lives in one place. What it says matters as much as what it
+ * refuses: "Too many submissions from this connection" told a guest they had
+ * sent too many when the truth was that the venue had, which reads as an
+ * accusation and leaves them nothing to do. Each of these says whose
+ * allowance ran out, and whether waiting will help.
+ */
+export function writeLimit(kind: 'rsvp' | 'guestbook', counts: WriteCounts): { status: number; message: string } | null {
+  const perGuest = kind === 'rsvp' ? RSVP_PER_GUEST_PER_HOUR : GUESTBOOK_PER_GUEST_PER_HOUR;
+  const perIp = kind === 'rsvp' ? RSVP_PER_IP_PER_HOUR : GUESTBOOK_PER_IP_PER_HOUR;
+  const perInvitation = kind === 'rsvp' ? RSVP_PER_INVITATION_PER_HOUR : GUESTBOOK_PER_INVITATION_PER_HOUR;
+
+  if (counts.guest !== null) {
+    if (counts.guest >= perGuest) {
+      return { status: 429, message: 'That is a lot of messages at once. Please try again in a little while.' };
+    }
+  } else if (counts.ip >= perIp) {
+    return { status: 429, message: 'Lots of messages are coming in from this network right now. Please try again in a few minutes.' };
+  }
+  if (counts.invitationHour >= perInvitation) {
+    return { status: 429, message: 'This invitation is receiving a lot of messages right now. Please try again in a few minutes.' };
+  }
+  return null;
+}
+
+async function rateLimit(kind: 'rsvp' | 'guestbook', ip: string, invitationId: string, token?: string) {
   const since = new Date(Date.now() - WINDOW_MS);
-  const count =
-    kind === 'rsvp'
-      ? await prisma.rsvp.count({ where: { ip, createdAt: { gte: since } } })
-      : await prisma.guestbookEntry.count({ where: { ip, createdAt: { gte: since } } });
-  const limit = kind === 'rsvp' ? RSVP_PER_IP_PER_HOUR : GUESTBOOK_PER_IP_PER_HOUR;
-  if (count >= limit) throw new HttpError(429, 'Too many submissions from this connection. Please try again later.');
+  const where = { invitationId, createdAt: { gte: since } };
+  const table = kind === 'rsvp' ? prisma.rsvp : prisma.guestbookEntry;
+
+  // A personal link identifies the writer, so they are counted as themselves
+  // rather than as the room. Only the RSVP table carries a guest, so a wish
+  // written by a guest on their own link is still counted by address — which
+  // is fine: the address allowance is a room's worth.
+  const guest =
+    kind === 'rsvp' && token
+      ? await prisma.rsvp.count({ where: { ...where, guest: { token } } })
+      : null;
+
+  const [ipCount, invitationHour] = await Promise.all([
+    (table as typeof prisma.guestbookEntry).count({ where: { ...where, ip } }),
+    (table as typeof prisma.guestbookEntry).count({ where }),
+  ]);
+
+  const problem = writeLimit(kind, { guest, ip: ipCount, invitationHour });
+  if (problem) throw new HttpError(problem.status, problem.message);
 }
 
 export const rsvpSchema = z.object({
@@ -118,7 +211,7 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   const invitation = await loadPublic(input.slug);
   if (!invitation || invitation.expired) throw new HttpError(404, 'That invitation is no longer available.');
   if (!rsvpOpen(invitation)) throw new HttpError(400, 'RSVP has closed for this event.');
-  await rateLimit('rsvp', ip);
+  await rateLimit('rsvp', ip, invitation.id, input.token);
 
   const content = contentOf(invitation.content);
   const rsvpSection = content.rsvp;
@@ -539,7 +632,7 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
   if (!hasFeature(invitation.tier, 'guestbook')) throw new HttpError(400, 'This invitation has no guestbook.');
   const gb = contentOf(invitation.content).guestbook;
   if (!bool(gb, 'enabled')) throw new HttpError(400, 'The guestbook is closed.');
-  await rateLimit('guestbook', ip);
+  await rateLimit('guestbook', ip, invitation.id);
   const moderated = bool(gb, 'moderated');
   const entry = await prisma.guestbookEntry.create({
     data: { invitationId: invitation.id, name: input.name, message: input.message, approved: !moderated, ip },

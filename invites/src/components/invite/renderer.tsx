@@ -1639,7 +1639,7 @@ function GuestPhotos({
   );
 }
 
-function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string; title?: string }) {
+function Guestbook({ inv, data, lang, hostsNoun, slug, token, tagline, title, print }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; print?: boolean }) {
   if (!bool(data, 'enabled')) return null;
   /*
    * Three on the wall, and the fourth message takes the oldest one's place.
@@ -1667,7 +1667,31 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
           </li>
         ))}
       </ul>
-      <p className="inv-muted mb-5 text-center text-xs">{more > 0 ? t(lang, 'guestbook.more', { n: more }) : '\u00a0'}</p>
+      {/*
+        * The way to the rest of them.
+        *
+        * The wall holds three and used to say "and 2 more in the book" — true,
+        * and no use to the guest reading it, because the others were only in
+        * the couple's dashboard. This goes to a page of its own rather than
+        * growing this one: the celebration stays the length it was drawn, and
+        * a guest reading eighty wishes is not scrolling past the cover to do
+        * it. The token rides along so a guest on their own link keeps it.
+        *
+        * On paper it stays the old statement. A link is dead in ink.
+        */}
+      {more === 0 ? (
+        // The wall is showing all of them, so there is nothing a page could
+        // add. Same condition the old line used, and the same held height.
+        <p className="inv-muted mb-5 text-center text-xs">{'\u00a0'}</p>
+      ) : print ? (
+        <p className="inv-muted mb-5 text-center text-xs">{t(lang, 'guestbook.more', { n: more })}</p>
+      ) : (
+        <p className="mb-5 text-center">
+          <a className="inv-book-open" href={`${invitationPath(inv.slug, token)}/messages`}>
+            {t(lang, 'guestbook.showAll')}
+          </a>
+        </p>
+      )}
       <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'guestbook.thanks') }} />
     </Section>
   );
@@ -2719,7 +2743,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // background music has no block of its own: the song plays from the shell as the invitation opens
         return null;
       case 'guestbook':
-        return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
+        return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} print={print} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
         return entitled(inv, 'photoSharing') ? (
           <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} swipe={page?.wall === 'swipe'} />

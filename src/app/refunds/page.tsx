@@ -36,9 +36,21 @@ export default async function RefundsPage() {
               {settings['business.name']}
             </span>
           </Link>
-          <Link href="/book" className="btn-secondary btn-sm">
-            Book a slot
-          </Link>
+          {/* Follows the booking switch, like every other call to action on
+              the public side. A button marked "Book a slot" that cannot book
+              one is a small lie in the corner of a policy page. */}
+          {settings['booking.enabled'] ? (
+            <Link href="/book" className="btn-secondary btn-sm">
+              Book a slot
+            </Link>
+          ) : (
+            <a
+              href={`tel:${settings['business.contact'].replace(/[^\d+]/g, '')}`}
+              className="btn-secondary btn-sm"
+            >
+              Call to book
+            </a>
+          )}
         </div>
       </header>
 

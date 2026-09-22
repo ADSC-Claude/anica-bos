@@ -97,6 +97,16 @@ export async function GET() {
       bank: settings['booking.bankDetails'],
     },
     bookingEnabled: settings['booking.enabled'],
+    /**
+     * The number to ring, for when booking is switched off.
+     *
+     * Sent with the catalogue rather than hardcoded in the form because the
+     * one screen that has to name it is the one that says "call us instead" —
+     * and a "call us" with no number is a dead end for somebody who reached
+     * /book from a bookmark or a search result. Already public: it is printed
+     * on the landing page and in the footer.
+     */
+    contact: settings['business.contact'],
     /** The largest party the floor could hold. Offered as choices, not promised. */
     maxParty: Math.min(seats, 12),
   });

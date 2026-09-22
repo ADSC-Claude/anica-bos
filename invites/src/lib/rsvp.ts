@@ -60,9 +60,23 @@ const WINDOW_MS = 60 * 60 * 1000;
  * stop a flood, not an attacker.
  */
 
-/** One guest, through their own personal link, in an hour. */
+/**
+ * One guest, through their own personal link, in an hour.
+ *
+ * The wish allowance is the album's forty rather than the reply's ten,
+ * because the two are not the same act. A reply is one decision, amended now
+ * and then; wishes are a conversation — a lola writes one for the child, one
+ * for the parents and one she thought of afterwards, and a ninang at the
+ * reception types as she goes. Ten of those is a number a real guest reaches
+ * on an ordinary evening, and being told to come back later is the last thing
+ * that should happen to somebody taking the trouble to write.
+ *
+ * It costs little to be generous here: text is cheap, the wall shows three at
+ * a time, and the rest are a page away rather than a scroll down the
+ * invitation. What is left of a flood is a few taps of Delete for the hosts.
+ */
 const RSVP_PER_GUEST_PER_HOUR = 10;
-const GUESTBOOK_PER_GUEST_PER_HOUR = 10;
+const GUESTBOOK_PER_GUEST_PER_HOUR = 40;
 
 /** One address, on one invitation, in an hour — a venue's wifi, not a person. */
 const RSVP_PER_IP_PER_HOUR = 60;
@@ -116,17 +130,19 @@ async function rateLimit(kind: 'rsvp' | 'guestbook', ip: string, invitationId: s
   const table = kind === 'rsvp' ? prisma.rsvp : prisma.guestbookEntry;
 
   // A personal link identifies the writer, so they are counted as themselves
-  // rather than as the room. Only the RSVP table carries a guest, so a wish
-  // written by a guest on their own link is still counted by address — which
-  // is fine: the address allowance is a room's worth.
-  const guest =
-    kind === 'rsvp' && token
-      ? await prisma.rsvp.count({ where: { ...where, guest: { token } } })
-      : null;
+  // rather than as the room. Both tables carry the guest who wrote the row
+  // now, so one relation answers for a reply and for a wish alike.
+  //
+  // The caller has already checked that the token is this invitation's. That
+  // matters: counted inside invitationId as this is, a token borrowed from
+  // another event would match nothing, and so would hand its holder a fresh
+  // allowance and excuse them the address ceiling as well.
+  const counted = table as typeof prisma.guestbookEntry;
+  const guest = token ? await counted.count({ where: { ...where, guest: { token } } }) : null;
 
   const [ipCount, invitationHour] = await Promise.all([
-    (table as typeof prisma.guestbookEntry).count({ where: { ...where, ip } }),
-    (table as typeof prisma.guestbookEntry).count({ where }),
+    counted.count({ where: { ...where, ip } }),
+    counted.count({ where }),
   ]);
 
   const problem = writeLimit(kind, { guest, ip: ipCount, invitationHour });
@@ -621,6 +637,7 @@ export async function deleteReply(invitation: { id: string }, rsvpId: string) {
 
 export const guestbookSchema = z.object({
   slug: z.string().min(1).max(80),
+  token: z.string().max(80).optional(),
   name: z.string().trim().min(1, 'Please tell us your name.').max(80),
   message: z.string().trim().min(2, 'Write a little something.').max(600),
   website: z.string().max(0).optional(),
@@ -632,10 +649,23 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
   if (!hasFeature(invitation.tier, 'guestbook')) throw new HttpError(400, 'This invitation has no guestbook.');
   const gb = contentOf(invitation.content).guestbook;
   if (!bool(gb, 'enabled')) throw new HttpError(400, 'The guestbook is closed.');
-  await rateLimit('guestbook', ip, invitation.id);
+
+  // A personal link is not required — most wishes are left from the one link
+  // the hosts shared with everybody — but a link that is given has to be this
+  // invitation's, the same rule the reply and the album apply. Checked before
+  // anything is counted, because the allowance below is spent in the writer's
+  // name and a borrowed token must not be able to spend it.
+  let guestId: string | null = null;
+  if (input.token) {
+    const guest = await guestByToken(input.token);
+    if (!guest || guest.invitationId !== invitation.id) throw new HttpError(404, 'That personal link is not valid.');
+    guestId = guest.id;
+  }
+
+  await rateLimit('guestbook', ip, invitation.id, guestId ? input.token : undefined);
   const moderated = bool(gb, 'moderated');
   const entry = await prisma.guestbookEntry.create({
-    data: { invitationId: invitation.id, name: input.name, message: input.message, approved: !moderated, ip },
+    data: { invitationId: invitation.id, name: input.name, message: input.message, approved: !moderated, ip, guestId },
   });
   await notify(invitation.userId, `${input.name} left a wish`, str(gb, 'prompt') || input.message.slice(0, 80), `/account/invitations/${invitation.id}/guestbook`);
   return { entry, pending: moderated };

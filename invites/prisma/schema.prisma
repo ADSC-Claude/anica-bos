@@ -649,6 +649,7 @@ model Guest {
   texts      SmsMessage[]
   emails     EmailMessage[]
   photos     Media[]
+  wishes     GuestbookEntry[]
 
   @@index([invitationId, groupName])
 }
@@ -750,12 +751,20 @@ model GuestbookEntry {
   message      String
   approved     Boolean  @default(false)
   ip           String   @default("")
+  /// Which guest wrote it, when they came through their own personal link.
+  /// Same bargain as a guest photo's: a named invitee gets their own
+  /// allowance instead of sharing the room's, because a venue's wifi is one
+  /// address for every phone in it. Null for a wish left from the public
+  /// link, and for every wish written before this column existed.
+  guestId      String?
   createdAt    DateTime @default(now())
 
   invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
   @@index([invitationId, approved, createdAt])
   @@index([ip, createdAt])
+  @@index([guestId, createdAt])
 }
 
 enum MediaKind {

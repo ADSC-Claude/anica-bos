@@ -1692,7 +1692,7 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, token, tagline, title, pr
           </a>
         </p>
       )}
-      <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'guestbook.thanks') }} />
+      <GuestbookForm slug={slug} token={token} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'guestbook.thanks') }} />
     </Section>
   );
 }

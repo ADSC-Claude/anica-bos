@@ -233,6 +233,12 @@ model Template {
   /// The design's own pictures, by URL — its backgrounds by day and by night,
   /// its strand. Blank falls back to the files shipped with the layout. See src/lib/design.ts.
   art              Json       @default("{}")
+  /// Which Canva design each part of this family is drawn from, by Canva's
+  /// own id rather than a share URL — a URL can be re-pointed or revoked,
+  /// an id is the design:
+  ///   {"main": "DAGxxxx", "saveTheDate": "DAGyyyy", "demo": "DAGzzzz"}
+  /// Empty for a design that was never brought in from Canva. See src/lib/canva.ts.
+  canva            Json       @default("{}")
   /// The design document a guest's page is drawn from: its pages, the ground
   /// under each one, and the photo frames and writings placed on the drawn
   /// ones. `{}` means "the layout's built-in", which is what every design
@@ -1047,4 +1053,35 @@ model InvitationRevision {
   createdAt    DateTime   @default(now())
 
   @@index([invitationId, createdAt])
+}
+
+/// The studio's connection to its own Canva account.
+///
+/// One row, ever — this is the business's account, not a customer's. The
+/// plan a customer buys decides what their invitation gets; it never decides
+/// which Canva account anything is drawn from.
+///
+/// The tokens are sealed before they are written (see src/lib/secrets.ts):
+/// a refresh token is a standing key to the account that drew every design
+/// in the catalogue, and a database backup is not the place for one in the
+/// clear. Sealing is keyed off SESSION_SECRET, so rotating that secret means
+/// reconnecting Canva — the same bargain the guest password cookies already
+/// make, and a reconnect is two presses.
+model CanvaConnection {
+  id             String   @id @default(cuid())
+  /// Sealed. Canva's access tokens are short-lived (about four hours).
+  accessToken    String
+  /// Sealed. What buys the next access token without anybody signing in again.
+  refreshToken   String
+  /// When the access token stops working, so it is refreshed before a call
+  /// rather than after a failure.
+  expiresAt      DateTime
+  /// What Canva granted, space-separated, as returned — not as requested.
+  scopes         String   @default("")
+  /// Who it is connected as, for the admin to read. Display only.
+  accountName    String   @default("")
+  /// The last time designs were listed from Canva, for "Last sync".
+  lastSyncAt     DateTime?
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

@@ -991,3 +991,25 @@ export async function staffChangePasswordAction(_prev: { error?: string; ok?: bo
   }
   redirect('/admin');
 }
+
+/**
+ * Drops the studio's Canva connection.
+ *
+ * The tokens go; nothing in Canva is touched and no design family forgets
+ * which Canva design it was drawn from. Reconnecting puts the account back
+ * without any of that having to be set again.
+ */
+export async function disconnectCanvaAction() {
+  return run('templates.edit', '/admin/settings/canva', async (user) => {
+    const { disconnect } = await import('@/lib/canva');
+    await disconnect();
+    await audit(user, {
+      module: 'templates',
+      action: 'canva.disconnected',
+      entityType: 'CanvaConnection',
+      summary: 'Disconnected the studio’s Canva account',
+      sensitive: true,
+    });
+    return 'Canva disconnected.';
+  });
+}

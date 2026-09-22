@@ -36,6 +36,7 @@ import { type Look } from './looks';
 import { builtInSets, findSet, findFaces, setAllowed, baseSet, type BookSet } from './fonts';
 import { fontBook } from './font-book';
 import { hasPremiumOpening } from './openings';
+import { hasGuestAccess } from './guest-access';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
 import { changeWindow, handedOver, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
@@ -645,6 +646,50 @@ async function keptCounts(invitationId: string, content: unknown, shown: { messa
     askPhotos ? prisma.media.count({ where: { invitationId, kind: 'GUEST_PHOTO', approved: true } }) : Promise.resolve(shown.photos),
   ]);
   return { messages, photos };
+}
+
+/**
+ * Every wish in the book, for a guest who asked to read them.
+ *
+ * The wall holds three (`SHOW_MESSAGES`) so the page keeps moving, and says
+ * how many more are behind them. A guest who wants to read the rest had
+ * nowhere to go: the others were only reachable from the couple's dashboard,
+ * which is not a guest's to open. This is that door.
+ *
+ * Four gates, and none of them is decoration:
+ *
+ *  - Published only. A draft's book is nobody's business, and the preview
+ *    path belongs to the owner, who has the Guestbook tab already.
+ *  - The wall has to be switched on. A family who turned the guestbook off
+ *    turned off the book with it, whatever is still stored behind it.
+ *  - Approved only, exactly as the wall does it. A wish waiting for approval
+ *    must not become readable by asking a different question.
+ *  - The password, if the invitation has one. The page itself is gated on
+ *    `hasGuestAccess`, so a book that answered without it would be a way
+ *    round the gate — the one hole a "read the rest" door could open.
+ *
+ * A ceiling of 500, because the answer is one response and a wall eighty deep
+ * is already unusual. Past that the oldest stay in the couple's tab and the
+ * export, which is where a book that long belongs anyway.
+ */
+export const BOOK_CEILING = 500;
+
+export async function theBook(slug: string) {
+  const invitation = await prisma.invitation.findUnique({
+    where: { slug },
+    select: { id: true, status: true, privacy: true, passwordHash: true, content: true },
+  });
+  if (!invitation || invitation.status !== 'PUBLISHED') return null;
+  if (!bool(contentOf(invitation.content).guestbook, 'enabled')) return null;
+  if (!(await hasGuestAccess(invitation))) return null;
+
+  const wishes = await prisma.guestbookEntry.findMany({
+    where: { invitationId: invitation.id, approved: true },
+    orderBy: { createdAt: 'desc' },
+    take: BOOK_CEILING,
+    select: { id: true, name: true, message: true },
+  });
+  return { wishes };
 }
 
 export async function checkGuestPassword(invitationId: string, password: string): Promise<boolean> {

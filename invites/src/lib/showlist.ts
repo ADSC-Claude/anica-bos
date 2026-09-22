@@ -29,3 +29,21 @@ export const SHOW_MESSAGES = 3;
 
 /** Photographs on the wall at once — a full three-by-three. */
 export const SHOW_PHOTOS = 9;
+
+/**
+ * What to add below the wall when a guest opens the book.
+ *
+ * The wall is already showing a few, server-rendered; the book comes back
+ * with everything. This is the difference — and it is computed from the ids
+ * on the wall rather than by dropping the first three.
+ *
+ * Why not just skip the count. Between the page rendering and the guest
+ * tapping, somebody else writes. The book then comes back one longer, every
+ * position shifts by one, and skipping three drops a message nobody has read
+ * while repeating one everybody has. At a reception where wishes arrive in
+ * bursts that is not a rare race, it is the normal case.
+ */
+export function restOfBook<T extends { id: string }>(book: readonly T[], onTheWall: readonly string[]): T[] {
+  const shown = new Set(onTheWall);
+  return book.filter((entry) => !shown.has(entry.id));
+}

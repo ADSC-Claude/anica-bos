@@ -31,10 +31,18 @@ export default async function BookPage() {
         <h1 className="font-display text-2xl font-semibold text-cocoa-800">
           Book your appointment
         </h1>
+        {/* The reservation fee is only half true when booking is switched off:
+            there is no slot to secure and no fee to pay until somebody rings.
+            The opening hours still matter — they are when the phone answers. */}
         <p className="muted mt-1">
-          Open {settings['business.openMinute'] === 720 ? '12nn' : ''}–12mn daily. A{' '}
-          {settings['booking.depositPercent']}% reservation fee secures your slot and is
-          deducted from your final bill.
+          Open {settings['business.openMinute'] === 720 ? '12nn' : ''}–12mn daily.
+          {settings['booking.enabled'] && (
+            <>
+              {' '}
+              A {settings['booking.depositPercent']}% reservation fee secures your slot and is
+              deducted from your final bill.
+            </>
+          )}
         </p>
         <BookingWizard />
       </main>

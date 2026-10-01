@@ -35,9 +35,19 @@ export default async function PrivacyPage() {
               {settings['business.name']}
             </span>
           </Link>
-          <Link href="/book" className="btn-secondary btn-sm">
-            Book a slot
-          </Link>
+          {/* Follows the booking switch — see the same block on /refunds. */}
+          {settings['booking.enabled'] ? (
+            <Link href="/book" className="btn-secondary btn-sm">
+              Book a slot
+            </Link>
+          ) : (
+            <a
+              href={`tel:${settings['business.contact'].replace(/[^\d+]/g, '')}`}
+              className="btn-secondary btn-sm"
+            >
+              Call to book
+            </a>
+          )}
         </div>
       </header>
 

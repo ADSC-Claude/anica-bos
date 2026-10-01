@@ -240,10 +240,18 @@ export default async function LandingPage() {
             {taglineHead}
             {taglineTail && <em className="block italic text-gilt-500">{taglineTail}</em>}
           </h1>
+          {/* The closing clause follows the booking switch. Promising a
+              booking "in just a few clicks" directly above a button that says
+              "Call to book" reads as a site that has half broken, and it is
+              the first paragraph a stranger ever reads. */}
           <p className="mt-6 max-w-xl leading-relaxed text-sand-100">
             Your wellness escape in {settings['business.locality']} awaits. Enjoy massage, body
-            scrubs, foot spas, and sauna treatments, then book your preferred therapist, room,
-            and time in just a few clicks.
+            scrubs, foot spas, and sauna treatments
+            {bookingOn ? (
+              <>, then book your preferred therapist, room, and time in just a few clicks.</>
+            ) : (
+              <> — give us a ring and we&apos;ll find you a therapist, a room and a time to suit.</>
+            )}
           </p>
           {bookingOn ? (
             <Link href="/book" className="btn-primary mt-9 rounded-full px-7">

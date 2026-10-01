@@ -42,6 +42,8 @@ type Catalog = {
   manualFallback: boolean;
   gcash: { name: string; number: string; bank: string };
   bookingEnabled: boolean;
+  /** The spa's phone number — the way through when booking is switched off. */
+  contact?: string;
   /** The largest party the floor could hold — 8 beds and 2 chairs is 10. */
   maxParty?: number;
 };
@@ -461,10 +463,22 @@ export function BookingWizard() {
     return <p className="mt-8 text-center text-sm text-cocoa-500">Loading the booking form…</p>;
   }
   if (!catalog.bookingEnabled) {
+    // Somebody reaches this from a bookmark, an old link or a search result,
+    // having already decided to book. "Call us" without a number sends them
+    // back to hunt for one, so the number is the button.
+    const tel = catalog.contact?.replace(/[^\d+]/g, '') ?? '';
     return (
       <div className="card-pad mt-6">
         <p className="font-semibold text-cocoa-800">Online booking is paused</p>
-        <p className="muted mt-1">Please call us and we&apos;ll set your appointment by phone.</p>
+        <p className="muted mt-1">
+          We&apos;re taking appointments by phone at the moment — call us and we&apos;ll set
+          yours up.
+        </p>
+        {catalog.contact && (
+          <a href={`tel:${tel}`} className="btn-primary mt-4 inline-flex rounded-full px-6">
+            Call {catalog.contact}
+          </a>
+        )}
       </div>
     );
   }

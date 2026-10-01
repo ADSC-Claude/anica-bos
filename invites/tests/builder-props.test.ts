@@ -117,3 +117,17 @@ test('progress, language and look are read off the content column', () => {
   assert.equal(bare.lookKey, '');
   assert.equal(bare.hidesWhenEmpty, false, 'the cover is the invitation');
 });
+
+test('staff may type past the point the form closes to a customer; the switches that run the day never close to anyone', () => {
+  const live = inv({ status: 'PUBLISHED' });
+  assert.equal(builderPropsFor('CUSTOMER', live, 'cover').canEditClosed, false, 'a customer is closed out of a live card');
+  for (const role of ['ADMIN', 'ENCODER', 'SUPPORT'] as const) {
+    assert.equal(builderPropsFor(role, live, 'cover').canEditClosed, true, `${role} edits for the customer`);
+  }
+  assert.equal(builderPropsFor('CUSTOMER', live, 'cover').liveEditable, false, 'the cover is design work');
+  for (const key of ['rsvp', 'guestbook', 'photos']) {
+    const p = builderPropsFor('CUSTOMER', live, key);
+    assert.equal(p.current, key, `${key} is a part of this card`);
+    assert.equal(p.liveEditable, true, `${key} runs the day`);
+  }
+});

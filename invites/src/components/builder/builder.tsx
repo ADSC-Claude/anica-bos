@@ -72,6 +72,7 @@ export function Builder({
   welcome = null,
   embed = false,
   canEditClosed = false,
+  liveEditable = false,
   onDraft,
   onSaved,
   onError,
@@ -121,6 +122,12 @@ export function Builder({
    * itself on them.
    */
   canEditClosed?: boolean;
+  /**
+   * One of the switches that run the day — the RSVP form, the guestbook,
+   * the album. saveSection takes those live or not, so the form stays open
+   * on them too; closing it here would withhold a control the save would take.
+   */
+  liveEditable?: boolean;
   /** Every change as it is made — a keystroke, a row, an upload — before it is saved. */
   onDraft?: (section: SectionKey, data: SectionData) => void;
   /** Every save that landed: what was sent, and what came back. */
@@ -182,9 +189,13 @@ export function Builder({
   const isDone = done.includes(current);
   // Two things close the form to a customer: publishing (revisions happen
   // before it, so there is nothing left to spend) and the three-week window.
-  // Neither closes it to staff editing for them.
+  // Neither closes it to staff editing for them, and neither closes the
+  // switches that run the day — the same two exceptions saveSection makes.
   const live = status === 'PUBLISHED';
-  const closed = !canEditClosed && (live || Boolean(changes?.closed));
+  const closed = !canEditClosed && !liveEditable && (live || Boolean(changes?.closed));
+  // The marks are not a switch that runs the day: setSectionDone keeps both
+  // locks for a customer on every part, so the Done bar follows them, not the fields.
+  const marksClosed = !canEditClosed && (live || Boolean(changes?.closed));
   const allDone = total > 0 && doneCount >= total;
   const when = (iso: string) => formatDate(new Date(iso));
   const labelOf = (path: string) => fields.find((f) => f.key === path.split(/[.[]/)[0])?.label ?? path;
@@ -356,9 +367,11 @@ export function Builder({
     <section className="min-w-0">
       {!embed && <GetStarted invitationId={invitationId} lines={checklist} send={send} welcome={welcome} />}
 
-      {!embed && (
+      {!embed && !canEditClosed && (
         <div className="mb-4 space-y-2">
-          {live ? (
+          {live && liveEditable ? (
+            <Notice tone="info">Your invitation is live. This part stays yours to change: it runs the day, and what you set here is on the page as soon as it is saved.</Notice>
+          ) : live ? (
             <Notice tone="info">
               Your invitation is live, so this is how it stands rather than something to change here.
               Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger and we will sort it out.
@@ -418,10 +431,10 @@ export function Builder({
 
       {/*
         Staff working past the point the customer could: said once, quietly,
-        so she knows a change made here is one the customer could not have
-        made themselves.
+        on the Invitation tab and in the studio alike, so she knows a change
+        made here is one the customer could not have made themselves.
       */}
-      {embed && canEditClosed && (live ? (
+      {canEditClosed && (live ? (
         <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">This invitation is live, so the customer can no longer change it. You still can.</p>
       ) : changes?.closed ? (
         <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">Changes closed for the customer on {when(changes.closesAt)}, three weeks before the event. You still can.</p>
@@ -434,7 +447,7 @@ export function Builder({
         it. What is not allowed is finding that out from the finished page,
         so the form says plainly what an empty part means here.
       */}
-      {hidesWhenEmpty && !section?.filled && !isDone && !closed && (
+      {hidesWhenEmpty && !section?.filled && !isDone && !marksClosed && (
         <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
           {embed ? (
             // staff reading it, about somebody else's card: no "we" and no revision round
@@ -450,6 +463,7 @@ export function Builder({
 
       {!closed && (
         <div className="sticky bottom-0 z-30 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">
+          {!marksClosed && (
           <span data-tour="done" className="flex flex-wrap items-center gap-2">
             {isDone ? (
               <>
@@ -468,6 +482,7 @@ export function Builder({
               <button type="button" className="btn btn-primary btn-sm" onClick={() => markDone(true)} disabled={pending}>✓ Mark this part done</button>
             )}
           </span>
+          )}
           {next && (onStep ? (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => onStep(next.key)}>Next: {next.label} →</button>
           ) : (

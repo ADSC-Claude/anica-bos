@@ -6,9 +6,9 @@ import {
 } from './sections';
 import { documentOf } from './design';
 import { designForm, askedFields, askedLimits, designMedia, framesFor } from './asks';
-import { isStaff } from './rbac';
+import { can, isStaff } from './rbac';
 import { galleryLimit } from './tiers';
-import { changeWindow, doneSections, handedOver, type Progress } from './progress';
+import { changeWindow, doneSections, handedOver, liveEditable, type Progress } from './progress';
 
 /**
  * What the form is told about one part of one invitation.
@@ -83,6 +83,18 @@ export function builderPropsFor(role: Role, inv: BuilderPropsInput, section?: st
     done: doneSections(content.progress),
     hidesWhenEmpty: !sectionAlwaysShows(current),
     completedAt: content.progress?.completedAt ?? null,
+    /*
+     * Who may type past the point the form closes to a customer. Staff
+     * editing for them: the server already takes their saves on a live card
+     * and inside the window (assertNotPublished and assertOpenForChanges
+     * both step aside for staff), so the form must not disable itself on
+     * them. It did, on the Invitation tab: only the studio's drawer said so,
+     * and an admin sent there by "Edit for the customer" found every box
+     * greyed out on a published invitation.
+     */
+    canEditClosed: isStaff(role) && can(role, 'invitations.edit'),
+    /** This part runs the day (LIVE_SECTIONS): it never closes, live or inside the window, to anyone. */
+    liveEditable: liveEditable(current),
     // as strings, so the answer survives a server action as it is
     window: w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null,
     lang: (inv.language === 'tl' ? 'tl' : 'en') as 'en' | 'tl',

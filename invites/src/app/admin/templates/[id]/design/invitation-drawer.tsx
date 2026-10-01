@@ -116,7 +116,6 @@ export function InvitationDrawer({ invitationId, title, asked, onStep, onShown, 
           invitationId={shown.id}
           {...shown.props}
           embed
-          canEditClosed
           onStep={onStep}
           onSaving={(save) => { pending.current = save; }}
           onDraft={(section, data) => onDraft(shown.id, section, data)}
